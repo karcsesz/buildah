@@ -224,10 +224,20 @@ func TempDirForURL(dir, prefix, url string) (name string, subdir string, err err
 		return name, filepath.Join(filepath.Base(downloadDir), gitSubDir), nil
 	}
 	if strings.HasPrefix(url, "github.com/") {
-		ghurl := url
-		url = fmt.Sprintf("https://%s/archive/master.tar.gz", ghurl)
-		logrus.Debugf("resolving url %q to %q", ghurl, url)
-		subdir = path.Base(ghurl) + "-master"
+		full_url := "https://" + url
+		parsed_url, err := urlpkg.Parse(full_url)
+		if err != nil {
+			return "", "", fmt.Errorf("parsing %s as URL: %w", full_url, err)
+		}
+		branch_name := "master"
+		if parsed_url.Fragment != "" {
+			logrus.Debugf("GitHub URL contains branch selector %q", parsed_url.Fragment)
+			branch_name = parsed_url.Fragment
+			parsed_url.Fragment = ""
+		}
+		url = fmt.Sprintf("%s/archive/%s.tar.gz", parsed_url, branch_name)
+		logrus.Debugf("Download URL is %q", url)
+		subdir = path.Base(parsed_url.Path) + "-" + branch_name
 	}
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		err = downloadToDirectory(url, downloadDir)
